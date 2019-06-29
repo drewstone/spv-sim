@@ -12,34 +12,49 @@ class Simulator(object):
         self.gamma = gamma
 
         self.agents = []
-        if self.honest_rate > 0:
-            self.agents.append(HonestAgent(self.honest_rate))
+        if honest > 0:
+            self.agents.append(HonestAgent(rate / honest))
 
-        if self.attack_rate > 0:
-            self.agents.append(MaliciousAgent(self.attack_rate))
+        if attack > 0:
+            self.agents.append(MaliciousAgent(rate / attack))
 
-        if self.spv_rate > 0:
-            self.agents.append(SPVAgent(self.spv_rate))
+        if spv > 0:
+            self.agents.append(SPVAgent(rate / spv))
 
     def run(self):
-        while True:
+        for _ in range(self.num_rounds):
             # gets mining events from agents
             blocks = [self.agents[i].mine() for i in range(len(self.agents))]
-            sorted_blocks = sorted(blocks, key=lambda b: b.time)
+            # print("{}: {}, {}: {}".format(
+            #     blocks[0].identifier, blocks[0].broadcast_time,
+            #     blocks[1].identifier, blocks[1].broadcast_time))
+
+            # print("Sim run: {}\n".format(
+            #     list(map(lambda b: (b.broadcast_time, b.time_from_last), blocks))))
             # select new chains for agents based on blocks
             for inx, a in enumerate(self.agents):
-                a.resolve_fork(sorted_blocks)
+                a.resolve_fork(blocks)
 
+        self.print_stats()
+
+    def print_stats(self):
+        stats = {}
+        temp_block = self.agents[0].chain_tip
+        while temp_block.height > 0:
+            if temp_block.identifier in stats:
+                stats[temp_block.identifier] += 1
+            else:
+                stats[temp_block.identifier] = 1
+
+            temp_block = temp_block.parent
+
+        print(stats)
 
 if __name__ == '__main__':
     rate = 60
-    honest = 0.51
+    honest = 0.90
     attack = 0.0
-    spv = 0.49
-    num_rounds = 100
+    spv = 0.10
+    num_rounds = 1000
     sim = Simulator(honest, attack, spv, rate, num_rounds)
     sim.run()
-    temp_block = sim.honest.chain_tip
-    while temp_block is not None:
-        print(temp_block)
-        temp_block = temp_block.parent

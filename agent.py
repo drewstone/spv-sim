@@ -11,7 +11,7 @@ class Agent(object):
         super(Agent, self).__init__()
         self.rate = block_rate
         # initialize with genesis block
-        self.genesis = Block(0, 0, None, 0.0, True, 'genesis')
+        self.genesis = Block(0, 0, None, 0.0, 0.0, True, 'genesis')
         self.chain_tip = self.genesis
         self.sig_digits = sig_digits
         self.time = 0
@@ -33,6 +33,8 @@ class Agent(object):
             has_data = True
         elif block_type == BlockType.HeaderOnly:
             has_data = True
+        elif block_type == BlockType.FullBlock:
+            has_data = True
         else:
             has_data = False
 
@@ -42,13 +44,13 @@ class Agent(object):
             block_hash,
             self.chain_tip.height + 1,
             self.chain_tip,
-            self.chain_tip.time + block_time,
+            self.chain_tip.broadcast_time + block_time,
+            block_time,
             has_data,
             identifier)
+        # print(block, has_data)
+        # print("Parent: {}".format(block.parent))
         return block
-
-    def resolve_fork(self, new_fork):
-        raise NotImplementedError
 
     def mine(self):
         raise NotImplementedError
@@ -60,9 +62,11 @@ class HonestAgent(Agent):
     """
     def __init__(self, block_rate):
         super().__init__(block_rate)
+        # print('honest: {}'.format(block_rate))
 
     def mine(self):
-        return self.setup_new_block(BlockType.FullBlock, 'honest')
+        block = self.setup_new_block(BlockType.FullBlock, 'honest')
+        return block
 
     def resolve_fork(self, blocks):
         leftover_blocks = blocks
@@ -78,27 +82,30 @@ class HonestAgent(Agent):
                 lambda e: e.height == max_ht_block.height,
                 leftover_blocks)
             )
+            # print("Honest resolve {}".format(list(map(lambda b: (b.broadcast_time, b.time_from_last), max_ht_blocks))))
             # get rest of blocks
             leftover_blocks = list(filter(
                 lambda e: not e.height == max_ht_block.height and e.height,
                 leftover_blocks)
             )
             # sort max height blocks by time, ascending
-            min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.time)
-
+            min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.broadcast_time)
+            # print("Min time Honest blocks {}".format(list(map(lambda b: (b.broadcast_time, b.time_from_last), min_time_blocks))))
             while len(min_time_blocks) > 0:
                 elt = min_time_blocks.pop(0)
-
+                # print(elt)
                 temp_fork_blk = elt
                 temp_self_blk = self.chain_tip
-
                 while not temp_fork_blk.hash == temp_self_blk.hash:
                     # break on genesis
-                    if (temp_fork_blk == self.genesis or
-                            temp_self_blk == self.genesis):
+                    if temp_fork_blk.height == 0 or temp_self_blk == 0:
+                        # print(temp_fork_blk)
+                        # print(temp_self_blk)
                         break
 
                     if temp_fork_blk.height > temp_self_blk.height:
+                        # print(temp_fork_blk)
+                        # print(temp_self_blk)
                         # honest agent rejects invalid forks (without data)
                         if not temp_fork_blk.has_data:
                             break
@@ -134,9 +141,11 @@ class SPVAgent(Agent):
     """
     def __init__(self, block_rate):
         super().__init__(block_rate)
+        # print('spv: {}'.format(block_rate))
 
     def mine(self):
-        return self.setup_new_block(BlockType.EmptyBlock, 'spv')
+        block = self.setup_new_block(BlockType.EmptyBlock, 'spv')
+        return block
 
     def resolve_fork(self, blocks):
         # get max height block
@@ -153,7 +162,7 @@ class SPVAgent(Agent):
             blocks)
         )
         # sort max height blocks by time, ascending
-        min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.time)
+        min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.broadcast_time)
         self.add_block(min_time_blocks[0])
 
 
