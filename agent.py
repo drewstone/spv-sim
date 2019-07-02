@@ -130,7 +130,14 @@ class SPVAgent(Agent):
         self.val_time = val_time
 
     def mine(self):
-        block = self.setup_new_block(BlockType.EmptyBlock, self.identifier)
+        if self.chain_tip.is_valid:
+            block = self.setup_new_block(
+                BlockType.EmptyBlock,
+                self.identifier)
+        else:
+            block = self.setup_new_block(
+                BlockType.InvalidBlock,
+                self.identifier)
         return block
 
     def resolve_fork(self, blocks):
@@ -160,16 +167,9 @@ class MaliciousAgent(Agent):
         super().__init__(block_rate)
         self.identifier = 'attack'
         self.k = k_conf
+        self.unvalidated_spends = 0
 
     def resolve_fork(self, blocks, agent_decisions):
-        potential_children = list(filter(
-            lambda e: e.parent.identifier == self.chain_tip.identifier,
-            blocks))
-        potential_children = list(filter(
-            lambda e: e.hash in [
-                agent_decisions[i].hash for i in range(len(agent_decisions))],
-            potential_children))
-
         # get max height block
         index, max_ht_block = max(
             enumerate(blocks),
@@ -185,6 +185,18 @@ class MaliciousAgent(Agent):
         )
         # sort max height blocks by time, ascending
         min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.broadcast_time)
+        # count number of invalid blocks in chain before accepting
+        # next valid block (i.e. when SPV miner switches to valid chain)
+        if not self.chain_tip.is_valid and min_time_blocks[0].is_valid:
+            temp = self.chain_tip
+            inx = 0
+            while not temp.is_valid:
+                temp = temp.parent
+                inx += 1
+
+            if inx > self.k:
+                self.unvalidated_spends += 1
+
         self.add_block(min_time_blocks[0])
         return
 
