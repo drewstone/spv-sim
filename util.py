@@ -17,7 +17,7 @@ class Block(object):
         parent,
         broadcast_time,
         time_from_last,
-        has_data,
+        is_valid,
         identifier
     ):
         super(Block, self).__init__()
@@ -26,7 +26,7 @@ class Block(object):
         self.parent = parent
         self.broadcast_time = broadcast_time
         self.time_from_last = time_from_last
-        self.has_data = has_data
+        self.is_valid = is_valid
         self.identifier = identifier
 
     def __str__(self):

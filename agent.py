@@ -7,7 +7,7 @@ MAX_INT = 99999999999999999999999999.999
 
 class Agent(object):
     """docstring for Agent"""
-    def __init__(self, block_rate, sig_digits=3):
+    def __init__(self, block_rate, sig_digits=6):
         super(Agent, self).__init__()
         self.rate = block_rate
         # initialize with genesis block
@@ -30,13 +30,13 @@ class Agent(object):
 
     def setup_new_block(self, block_type, identifier):
         if block_type == BlockType.EmptyBlock:
-            has_data = True
+            is_valid = True
         elif block_type == BlockType.HeaderOnly:
-            has_data = True
+            is_valid = True
         elif block_type == BlockType.FullBlock:
-            has_data = True
+            is_valid = True
         else:
-            has_data = False
+            is_valid = False
 
         block_hash = np.random.randint(0, 1e15)
         block_time = round(np.random.exponential(self.rate), self.sig_digits)
@@ -46,10 +46,8 @@ class Agent(object):
             self.chain_tip,
             self.chain_tip.broadcast_time + block_time,
             block_time,
-            has_data,
+            is_valid,
             identifier)
-        # print(block, has_data)
-        # print("Parent: {}".format(block.parent))
         return block
 
     def mine(self):
@@ -62,14 +60,25 @@ class HonestAgent(Agent):
     """
     def __init__(self, block_rate):
         super().__init__(block_rate)
-        # print('honest: {}'.format(block_rate))
+        self.identifier = 'honest'
 
     def mine(self):
-        block = self.setup_new_block(BlockType.FullBlock, 'honest')
+        block = self.setup_new_block(BlockType.FullBlock, self.identifier)
         return block
+
+    def is_valid_chain(self, block):
+        temp = block
+        while temp.height > 0:
+            if temp.is_valid:
+                temp = temp.parent
+            else:
+                return False
+        return True
 
     def resolve_fork(self, blocks):
         leftover_blocks = blocks
+        # honest agent processes blocks by max height
+        # and min time and discards invalid blocks.
         while len(leftover_blocks) > 0:
             # get max height block
             index, max_ht_block = max(
@@ -82,52 +91,28 @@ class HonestAgent(Agent):
                 lambda e: e.height == max_ht_block.height,
                 leftover_blocks)
             )
-            # print("Honest resolve {}".format(list(map(lambda b: (b.broadcast_time, b.time_from_last), max_ht_blocks))))
             # get rest of blocks
             leftover_blocks = list(filter(
                 lambda e: not e.height == max_ht_block.height and e.height,
                 leftover_blocks)
             )
             # sort max height blocks by time, ascending
-            min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.broadcast_time)
-            # print("Min time Honest blocks {}".format(list(map(lambda b: (b.broadcast_time, b.time_from_last), min_time_blocks))))
+            min_time_blocks = sorted(
+                max_ht_blocks,
+                key=lambda e: e.broadcast_time)
             while len(min_time_blocks) > 0:
                 elt = min_time_blocks.pop(0)
-                # print(elt)
-                temp_fork_blk = elt
-                temp_self_blk = self.chain_tip
-                while not temp_fork_blk.hash == temp_self_blk.hash:
-                    # break on genesis
-                    if temp_fork_blk.height == 0 or temp_self_blk == 0:
-                        # print(temp_fork_blk)
-                        # print(temp_self_blk)
-                        break
 
-                    if temp_fork_blk.height > temp_self_blk.height:
-                        # print(temp_fork_blk)
-                        # print(temp_self_blk)
-                        # honest agent rejects invalid forks (without data)
-                        if not temp_fork_blk.has_data:
-                            break
-                        temp_fork_blk = temp_fork_blk.parent
-                    elif temp_fork_blk.height < temp_self_blk.height:
-                        temp_self_blk = temp_self_blk.parent
-                    else:
-                        temp_fork_blk = temp_fork_blk.parent
-                        temp_self_blk = temp_self_blk.parent
-
-                # grab next element if block is invalid, otherwise add to tip
-                if not temp_fork_blk.has_data:
+                if elt.identifier == 'attack':
                     continue
+                elif elt.identifier == 'spv':
+                    if self.is_valid_chain(elt):
+                        self.add_block(elt)
+                    else:
+                        continue
                 else:
+                    # add honest block
                     self.add_block(elt)
-                    break
-
-            # check if tip was set, otherwise repeat with leftovers
-            if self.chain_tip.height == max_ht_block.height:
-                break
-            else:
-                continue
 
 
 class SPVAgent(Agent):
@@ -139,12 +124,13 @@ class SPVAgent(Agent):
     the SPVAgent chooses the one it receives the
     earliest.
     """
-    def __init__(self, block_rate):
+    def __init__(self, block_rate, val_time=0.0):
         super().__init__(block_rate)
-        # print('spv: {}'.format(block_rate))
+        self.identifier = 'spv'
+        self.val_time = val_time
 
     def mine(self):
-        block = self.setup_new_block(BlockType.EmptyBlock, 'spv')
+        block = self.setup_new_block(BlockType.EmptyBlock, self.identifier)
         return block
 
     def resolve_fork(self, blocks):
@@ -170,11 +156,36 @@ class MaliciousAgent(Agent):
     """
     MaliciousAgent
     """
-    def __init__(self, block_rate):
+    def __init__(self, block_rate, k_conf):
         super().__init__(block_rate)
+        self.identifier = 'attack'
+        self.k = k_conf
 
-    def resolve_fork(self, my_block, other_blocks):
-        # ensure spv_block is always indexed first
+    def resolve_fork(self, blocks, agent_decisions):
+        potential_children = list(filter(
+            lambda e: e.parent.identifier == self.chain_tip.identifier,
+            blocks))
+        potential_children = list(filter(
+            lambda e: e.hash in [
+                agent_decisions[i].hash for i in range(len(agent_decisions))],
+            potential_children))
+
+        # get max height block
+        index, max_ht_block = max(
+            enumerate(blocks),
+            key=lambda e: e[1].height)
+
+        if max_ht_block.height <= self.chain_tip.height:
+            return
+
+        # get all max height blocks
+        max_ht_blocks = list(filter(
+            lambda e: e.height == max_ht_block.height,
+            blocks)
+        )
+        # sort max height blocks by time, ascending
+        min_time_blocks = sorted(max_ht_blocks, key=lambda e: e.broadcast_time)
+        self.add_block(min_time_blocks[0])
         return
 
     def mine(self):
