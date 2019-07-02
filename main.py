@@ -63,10 +63,17 @@ class Simulator(object):
             else:
                 stats[temp_block.identifier] = 1
 
-            if temp_block.identifier == 'attack':
+            if not temp_block.is_valid:
                 attack_blocks.append(temp_block)
 
             temp_block = temp_block.parent
+
+        honest_blocks = []
+        if len(attack_blocks) > 0:
+            temp = self.honest.chain_tip
+            for _ in range(len(attack_blocks)):
+                honest_blocks.append(temp)
+                temp = temp.parent
 
         temp_stats = dict(stats)
         for key in temp_stats:
@@ -74,7 +81,6 @@ class Simulator(object):
                 / self.num_rounds)
 
         print(stats)
-        print(list(map(lambda b: b.height, attack_blocks)))
         print(self.attack.unvalidated_spends)
 
 if __name__ == '__main__':
