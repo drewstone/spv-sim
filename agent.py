@@ -7,13 +7,12 @@ MAX_INT = 99999999999999999999999999.999
 
 class Agent(object):
     """docstring for Agent"""
-    def __init__(self, block_rate, sig_digits=6):
+    def __init__(self, block_rate):
         super(Agent, self).__init__()
         self.rate = block_rate
         # initialize with genesis block
         self.genesis = Block(0, 0, None, 0.0, 0.0, True, 'genesis')
         self.chain_tip = self.genesis
-        self.sig_digits = sig_digits
         self.time = 0
 
     def add_block(self, block):
@@ -39,7 +38,7 @@ class Agent(object):
             is_valid = False
 
         block_hash = np.random.randint(0, 1e15)
-        block_time = round(np.random.exponential(self.rate), self.sig_digits)
+        block_time = round(np.random.exponential(self.rate), 6)
         block = Block(
             block_hash,
             self.chain_tip.height + 1,

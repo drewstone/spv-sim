@@ -29,6 +29,17 @@ class Block(object):
         self.is_valid = is_valid
         self.identifier = identifier
 
+    def add_delay(self, delay):
+        return Block(
+            self.hash,
+            self.height,
+            self.parent,
+            self.broadcast_time + delay,
+            self.time_from_last,
+            self.is_valid,
+            self.identifier,
+        )
+
     def __str__(self):
         return format('Hash: {}, Height: {}, Brdcast Time: {}, Time from last: {}, Identifier: {}'
             .format(self.hash,

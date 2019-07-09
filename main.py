@@ -1,3 +1,4 @@
+import numpy as np
 from agent import HonestAgent, MaliciousAgent, SPVAgent
 
 
@@ -15,6 +16,11 @@ class Simulator(object):
         super(Simulator, self).__init__()
         self.num_rounds = num_rounds
         self.agents = []
+        self.honest_prob = honest
+        self.attack_prob = attack
+        self.spv_prob = spv
+        self.rate = rate
+
         if honest > 0:
             self.honest = HonestAgent(rate * 1.0 / honest)
             self.agents.append(self.honest)
@@ -37,21 +43,47 @@ class Simulator(object):
         for _ in range(self.num_rounds):
             # gets mining events from agents
             blocks = [self.agents[i].mine() for i in range(len(self.agents))]
-            # print(list(map(lambda b: (b.time_from_last, b.identifier), blocks)))
-            # select new chains for agents based on blocks
+            # get exponential delays for agents
+            delays = [np.random.exponential(self.rate) for _ in range(len(self.agents))]
+            # select new chains for agents based on blocks and delays
             non_malice_decisions = []
             if self.honest:
-                self.honest.resolve_fork(blocks)
+                blocks_for_honest = [
+                    b.add_delay(delays[inx])
+                    if b.identifier != 'honest' else b
+                    for inx, b in enumerate(blocks)
+                ]
+
+                self.honest.resolve_fork(blocks_for_honest)
                 non_malice_decisions.append(self.honest.chain_tip)
 
             if self.spv:
-                self.spv.resolve_fork(blocks)
+                blocks_for_spv = [
+                    b.add_delay(delays[inx])
+                    if b.identifier != 'spv' else b
+                    for inx, b in enumerate(blocks)
+                ]
+                self.spv.resolve_fork(blocks_for_spv)
                 non_malice_decisions.append(self.spv.chain_tip)
 
             if self.attack:
-                self.attack.resolve_fork(blocks, non_malice_decisions)
+                blocks_for_attack = [
+                    b.add_delay(delays[inx])
+                    if b.identifier != 'attack' else b
+                    for inx, b in enumerate(blocks)
+                ]
+                self.attack.resolve_fork(blocks_for_attack, non_malice_decisions)
 
         self.print_stats()
+
+    def run_priority_queue(self):
+        agents = [self.honest, self.attack, self.spv]
+        while True:
+            winner = np.random.choice(agents, p=[
+                self.honest_prob,
+                self.attack_prob,
+                self.spv_prob])
+            print(winner)
 
     def print_stats(self):
         stats = {}
@@ -84,12 +116,12 @@ class Simulator(object):
         print(self.attack.unvalidated_spends)
 
 if __name__ == '__main__':
-    rate = 60
+    rate = 600
     honest = 0.70
     attack = 0.20
     spv = 0.10
-    num_rounds = 10000
-    confirmations = 15
+    num_rounds = 1000
+    confirmations = 20
     sim = Simulator(
         honest,
         attack,
