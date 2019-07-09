@@ -1,6 +1,6 @@
 import numpy as np
-import operator
-from util import Block, BlockType
+from util import Block, BlockType, print_blocks
+
 
 MAX_INT = 99999999999999999999999999.999
 
@@ -99,19 +99,21 @@ class HonestAgent(Agent):
             min_time_blocks = sorted(
                 max_ht_blocks,
                 key=lambda e: e.broadcast_time)
+
             while len(min_time_blocks) > 0:
                 elt = min_time_blocks.pop(0)
-
                 if elt.identifier == 'attack':
                     continue
                 elif elt.identifier == 'spv':
                     if self.is_valid_chain(elt):
                         self.add_block(elt)
+                        return
                     else:
                         continue
                 else:
                     # add honest block
                     self.add_block(elt)
+                    return
 
 
 class SPVAgent(Agent):

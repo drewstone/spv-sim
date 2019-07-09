@@ -47,3 +47,8 @@ class Block(object):
                     self.broadcast_time,
                     self.time_from_last,
                     self.identifier))
+
+
+def print_blocks(_id, blocks):
+    print(list(map(lambda b: "{} | {}, delivery_time {}"
+        .format(_id, b.identifier, b.broadcast_time), blocks)))
