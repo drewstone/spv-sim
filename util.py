@@ -15,8 +15,7 @@ class Block(object):
         block_hash,
         height,
         parent,
-        broadcast_time,
-        time_from_last,
+        time,
         is_valid,
         identifier
     ):
@@ -24,8 +23,7 @@ class Block(object):
         self.hash = block_hash
         self.height = height
         self.parent = parent
-        self.broadcast_time = broadcast_time
-        self.time_from_last = time_from_last
+        self.time = time
         self.is_valid = is_valid
         self.identifier = identifier
 
@@ -34,7 +32,7 @@ class Block(object):
             self.hash,
             self.height,
             self.parent,
-            self.broadcast_time + delay,
+            self.time + delay,
             self.time_from_last,
             self.is_valid,
             self.identifier,
@@ -44,11 +42,44 @@ class Block(object):
         return format('Hash: {}, Height: {}, Brdcast Time: {}, Time from last: {}, Identifier: {}'
             .format(self.hash,
                     self.height,
-                    self.broadcast_time,
+                    self.time,
                     self.time_from_last,
                     self.identifier))
 
 
 def print_blocks(_id, blocks):
     print(list(map(lambda b: "{} | {}, delivery_time {}"
-        .format(_id, b.identifier, b.broadcast_time), blocks)))
+        .format(_id, b.identifier, b.time), blocks)))
+
+
+def print_stats_for_round_sim(simulator):
+    stats = {}
+    attack_blocks = []
+    temp_block = simulator.spv.chain_tip
+    while temp_block.height > 0:
+        if temp_block.identifier in stats:
+            stats[temp_block.identifier] += 1
+        else:
+            stats[temp_block.identifier] = 1
+
+        if not temp_block.is_valid:
+            attack_blocks.append(temp_block)
+
+        temp_block = temp_block.parent
+
+    honest_blocks = []
+    if len(attack_blocks) > 0:
+        temp = simulator.honest.chain_tip
+        for _ in range(len(attack_blocks)):
+            honest_blocks.append(temp)
+            temp = temp.parent
+
+    temp_stats = dict(stats)
+    for key in temp_stats:
+        stats["{}-frac".format(key)] = (temp_stats[key] * 1.0
+            / simulator.num_rounds)
+
+    if simulator.attack:
+        print(simulator.attack.unvalidated_spends)
+
+    print(stats)

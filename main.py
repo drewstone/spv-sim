@@ -1,6 +1,12 @@
+import logging
 import numpy as np
-from agent import HonestAgent, MaliciousAgent, SPVAgent
+import copy
+import simpy
+from agents.honest import HonestAgent
+from agents.attack import AttackAgent
+from agents.spv import SPVAgent
 from util import print_blocks
+from network import Network
 
 
 class Simulator(object):
@@ -13,34 +19,47 @@ class Simulator(object):
         rate,
         num_rounds,
         k_conf=6,
+        length=0,
     ):
         super(Simulator, self).__init__()
         self.num_rounds = num_rounds
         self.agents = []
+        self.delays = []
+        self.agent_probs = []
         self.honest_prob = honest
         self.attack_prob = attack
         self.spv_prob = spv
         self.rate = rate
+        self.event_queue = []
+        self.env = simpy.Environment()
+        self.network = Network(self, self._log)
+        self.simulation_length = length
 
         if honest > 0:
-            self.honest = HonestAgent(rate * 1.0 / honest)
+            self.honest = HonestAgent(rate * 1.0 / honest, self.network)
             self.agents.append(self.honest)
+            self.agent_probs.append(self.honest_prob)
+            self.delays.append(0.0)
         else:
             self.honest = False
 
         if spv > 0:
-            self.spv = SPVAgent(rate * 1.0 / spv)
+            self.spv = SPVAgent(rate * 1.0 / spv, self.network)
             self.agents.append(self.spv)
+            self.agent_probs.append(self.spv_prob)
+            self.delays.append(0.0)
         else:
             self.spv = False
 
         if attack > 0:
-            self.attack = MaliciousAgent(rate * 1.0 / attack, k_conf)
+            self.attack = AttackAgent(rate * 1.0 / attack, k_conf, self.network)
             self.agents.append(self.attack)
+            self.agent_probs.append(self.attack_prob)
+            self.delays.append(0.0)
         else:
             self.attack = False
 
-    def run(self):
+    def run_in_rounds(self):
         for _ in range(self.num_rounds):
             # gets mining events from agents
             blocks = [self.agents[i].mine() for i in range(len(self.agents))]
@@ -80,60 +99,49 @@ class Simulator(object):
 
         self.print_stats()
 
-    def run_priority_queue(self):
-        agents = [self.honest, self.attack, self.spv]
+    def run(self):
+        self.env.process(self._block_generator_process())
+        self.env.run(until=self.env.timeout(self.simulation_length))
+
+    def block_generator_process(self):
         while True:
-            winner = np.random.choice(agents, p=[
-                self.honest_prob,
-                self.attack_prob,
-                self.spv_prob])
-            print(winner)
+            miner = np.random.choice(self.agents, p=self.agent_probs)
+            block = miner.mine()
+            yield miner.broadcast_block(self.env, block)
 
-    def print_stats(self):
-        stats = {}
-        attack_blocks = []
-        temp_block = self.spv.chain_tip
-        while temp_block.height > 0:
-            if temp_block.identifier in stats:
-                stats[temp_block.identifier] += 1
-            else:
-                stats[temp_block.identifier] = 1
+    def send_block(self, sender, receiver, block):
+        def send_block_process(self, env):
+            receiver.try_add_block(copy.deepcopy(block))
+            yield env.timeout(0)
 
-            if not temp_block.is_valid:
-                attack_blocks.append(temp_block)
+        delay_time = self.network.delays[self.identifier]
+        if delay_time <= 0:
+            delay_time = 0.0001
+        simpy.util.start_delayed(self.env, send_block_process(
+            self.env,
+            block.add_delay(delay_time)
+        ), delay_time)
 
-            temp_block = temp_block.parent
-
-        honest_blocks = []
-        if len(attack_blocks) > 0:
-            temp = self.honest.chain_tip
-            for _ in range(len(attack_blocks)):
-                honest_blocks.append(temp)
-                temp = temp.parent
-
-        temp_stats = dict(stats)
-        for key in temp_stats:
-            stats["{}-frac".format(key)] = (temp_stats[key] * 1.0
-                / self.num_rounds)
-
-        if self.attack:
-            print(self.attack.unvalidated_spends)
-
-        print(stats)
-
+    def _log(self, text: str):
+        """
+        Logs the given text with the network_simulation's current timestamp.
+        """
+        logging.info("Time: " + str(self._env.now) + ", " + text)
 
 if __name__ == '__main__':
     rate = 600
-    honest = 0.6
-    attack = 0.0
+    honest = 0.5
+    attack = 0.1
     spv = 0.4
     num_rounds = 10000
     confirmations = 10
+    simulation_length = 1000000
     sim = Simulator(
         honest,
         attack,
         spv,
         rate,
         num_rounds,
-        k_conf=confirmations)
+        k_conf=confirmations,
+        length=simulation_length)
     sim.run()
