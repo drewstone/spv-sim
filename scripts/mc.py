@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import matrix_power
 
 
 class Node(object):
@@ -10,6 +11,8 @@ class Node(object):
         self.level = level
         self.left = None
         self.right = None
+        self.left_prob = 0.0
+        self.right_prob = 0.0
         self.attack_blocks = None
         self.honest_blocks = None
 
@@ -73,7 +76,6 @@ def build_graph(alpha, beta, target_conf):
         if ctr >= num_nodes:
             return node_map
 
-        print(node.id, ctr, ctr + 1)
         node.set_children(ctr, ctr + 1)
         if ctr not in in_queue:
             queue.append(node_map[ctr])
@@ -94,11 +96,23 @@ def print_queue(queue):
     for _, elt in enumerate(queue):
         print("In queue: {}".format(elt))
 
+
+def markov_chain_gen(node_map):
+    matrix = np.zeros([len(node_map), len(node_map)])
+    for inx in node_map:
+        node = node_map[inx]
+        if node.left is not None and node.right is not None:
+            matrix[node.id][node.left] = node.left_prob
+            matrix[node.id][node.right] = node.right_prob
+        else:
+            matrix[node_map[inx].id][0] = 1.0
+    return matrix
+
 if __name__ == '__main__':
     alpha = 0.3
     beta = 0.5
     # target confirmations
-    k = 4
+    k = 5
     node_map = build_graph(alpha, beta, k)
-    for key in node_map:
-        print(node_map[key])
+    matrix = markov_chain_gen(node_map)
+    print(matrix_power(matrix, 20))
