@@ -1,5 +1,7 @@
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 import numpy as np
-from numpy.linalg import matrix_power
 
 
 class Node(object):
@@ -41,10 +43,10 @@ class Node(object):
             self.honest_blocks)
 
 
-def create_node_map(alpha, beta, levels):
+def create_node_map(alpha, beta, conf):
     node_map = {}
     ctr = 0
-    for i in range(levels):
+    for i in range(2 * conf + 1):
         for j in range(i+1):
             node_map[ctr] = Node(ctr, alpha, beta, i)
             ctr += 1
@@ -52,7 +54,8 @@ def create_node_map(alpha, beta, levels):
 
 
 def build_graph(alpha, beta, target_conf):
-    num_nodes = (target_conf * (target_conf + 1)) / 2
+    level_ct = 2 * target_conf + 1
+    num_nodes = (level_ct * (level_ct + 1)) / 2
     node_map = create_node_map(alpha, beta, target_conf)
     in_queue = {0: True, 1: True, 2: True}
     # setup root node children
@@ -108,11 +111,29 @@ def markov_chain_gen(node_map):
             matrix[node_map[inx].id][0] = 1.0
     return matrix
 
+
+def stead_state_solver(matrix):
+    left_eig = np.linalg.eig(matrix.transpose())
+    return left_eig
+
+
+def plot_prob_matrix(matrix, power=1):
+    m = np.linalg.matrix_power(matrix, power)
+    XB = np.linspace(-1, 1, 28)
+    YB = np.linspace(-1, 1, 28)
+    X, Y = np.meshgrid(XB, YB)
+    plt.imshow(m, interpolation='none')
+    plt.show()
+
+
 if __name__ == '__main__':
     alpha = 0.3
     beta = 0.5
     # target confirmations
-    k = 5
+    k = 6
     node_map = build_graph(alpha, beta, k)
+    for i in node_map:
+        print(node_map[i])
     matrix = markov_chain_gen(node_map)
-    print(matrix_power(matrix, 20))
+    for i in range(1, 100):
+        plot_prob_matrix(matrix, i)
