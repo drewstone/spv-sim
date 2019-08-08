@@ -1,6 +1,8 @@
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import matplotlib.cm as cm
 import numpy as np
 
 
@@ -123,6 +125,7 @@ def build_rect_graph(alpha, beta, target_conf):
 
         if node.level == 0:
             root.set_children(ctr, ctr + 1)
+            root.set_prob(alpha)
             l_child = Node(ctr, alpha, beta, node.level + 1)
             l_child.set_state(node.attack_blocks + 1, node.honest_blocks)
             r_child = Node(ctr + 1, alpha, beta, node.level + 1)
@@ -209,23 +212,42 @@ def stead_state_solver(matrix):
     return left_eig
 
 
-def plot_prob_matrix(matrix, power=1):
+def plot_prob_matrix(ax, matrix, power=1):
     m = np.linalg.matrix_power(matrix, power)
     XB = np.linspace(-1, 1, 28)
     YB = np.linspace(-1, 1, 28)
     X, Y = np.meshgrid(XB, YB)
-    plt.imshow(m, interpolation='none')
-    plt.show()
+    return ax.imshow(m, interpolation='none', cmap=plt.cm.jet)
+
+
+def start(matrix, k, alpha, beta):
+    fig = plt.figure()
+    ax = fig.subplots()
+    ax.set_title('Converge animation w/ alpha: {}, beta: {}, gamma: {}'.format(alpha, beta, 1 - alpha - beta), fontsize=12)
+    img = []
+    cax = fig.add_axes([0.27, 0.8, 0.5, 0.05])
+    m = cm.ScalarMappable(cmap=cm.jet)
+    m.set_array([])
+    fig.colorbar(cm.ScalarMappable(cmap=plt.cm.jet), cax=cax)
+    for i in range(1, int(50 * k / 2)):
+        img.append((plot_prob_matrix(ax, matrix, i),))
+    anim = animation.ArtistAnimation(fig, img, interval=50, repeat_delay=3000,
+                                   blit=True)
+    anim.save('converg-{}.mp4'.format(k), writer='imagemagick', fps=30)
 
 
 if __name__ == '__main__':
     alpha = 0.3
     beta = 0.5
     # target confirmations
-    k = 3
-    node_map = build_rect_graph(alpha, beta, k)
-    for i in node_map:
-        print(node_map[i])
-    # matrix = markov_chain_gen(node_map)
-    # for i in range(1, 100):
-    #     plot_prob_matrix(matrix, i)
+
+    # Set up formatting for the movie files
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+
+    for k in range(3, 7):
+        node_map = build_rect_graph(alpha, beta, k)
+        for i in node_map:
+            print(node_map[i])
+        matrix = markov_chain_gen(node_map)
+        start(matrix, k, alpha, beta)
