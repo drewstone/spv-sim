@@ -135,7 +135,7 @@ def build_rect_graph(alpha, beta, target_conf):
             ctr += 2
         else:
             if node.attack_blocks > target_conf:
-                node.set_children(None, ctr)
+                node.set_children(None, None)
                 node.set_prob(0.0)
                 if ctr not in in_queue:
                     r_child = Node(ctr, alpha, beta, node.level + 1)
@@ -200,8 +200,8 @@ def markov_chain_gen(node_map):
     for inx in node_map:
         node = node_map[inx]
         if node.left is not None and node.right is not None:
-            matrix[node.id][node.left] = node.left_prob
-            matrix[node.id][node.right] = node.right_prob
+            matrix[node.id][node.left] = node.left_prob + matrix[node.id][node.left]
+            matrix[node.id][node.right] = node.right_prob + matrix[node.id][node.right]
         else:
             matrix[node_map[inx].id][0] = 1.0
     return matrix
@@ -212,8 +212,7 @@ def stead_state_solver(matrix):
     return left_eig
 
 
-def plot_prob_matrix(ax, matrix, power=1):
-    m = np.linalg.matrix_power(matrix, power)
+def plot_prob_matrix(ax, m):
     XB = np.linspace(-1, 1, 28)
     YB = np.linspace(-1, 1, 28)
     X, Y = np.meshgrid(XB, YB)
@@ -225,15 +224,14 @@ def start(matrix, k, alpha, beta):
     ax = fig.subplots()
     ax.set_title('Converge animation w/ alpha: {}, beta: {}, gamma: {}'.format(alpha, beta, 1 - alpha - beta), fontsize=12)
     img = []
-    cax = fig.add_axes([0.27, 0.8, 0.5, 0.05])
-    m = cm.ScalarMappable(cmap=cm.jet)
-    m.set_array([])
-    fig.colorbar(cm.ScalarMappable(cmap=plt.cm.jet), cax=cax)
-    for i in range(1, int(50 * k / 2)):
-        img.append((plot_prob_matrix(ax, matrix, i),))
+    final = matrix
+    for i in range(1, 10):
+        final = np.linalg.matrix_power(matrix, i)
+        img.append((plot_prob_matrix(ax, final),))
     anim = animation.ArtistAnimation(fig, img, interval=50, repeat_delay=3000,
                                    blit=True)
-    anim.save('converg-{}.mp4'.format(k), writer='imagemagick', fps=30)
+    anim.save('converge-{}.mp4'.format(k), writer='imagemagick', fps=30)
+    return final
 
 
 if __name__ == '__main__':
