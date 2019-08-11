@@ -46,6 +46,7 @@ class SimpleNode(object):
 def split_graph(alpha, beta, target_conf):
     nmap = {}
     seen = {}
+    final_nodes = []
     root = SimpleNode(0, [0, 0], True)
     queue = [root]
     nmap[0] = root
@@ -56,6 +57,7 @@ def split_graph(alpha, beta, target_conf):
             if node.state == WIN_STATE or node.state == LOSE_STATE:
                 node.set_prob(0.0)
                 node.set_children([node.id, node.id])
+                final_nodes.append(node.id)
             continue
 
         from_honest = node.from_honest
@@ -113,7 +115,8 @@ def split_graph(alpha, beta, target_conf):
         else:
             node.set_right_child(seen[right_lookup])
 
-    return nmap
+    return nmap, final_nodes
+
 
 def markov_chain_gen(node_map):
     matrix = np.zeros([len(node_map), len(node_map)])

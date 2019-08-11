@@ -227,7 +227,7 @@ def start(matrix, k, alpha, beta, title="reg"):
     ax.set_title('Converge animation w/ alpha: {}, beta: {}, gamma: {}'.format(alpha, beta, 1 - alpha - beta), fontsize=12)
     img = []
     final = matrix
-    for i in range(1, 10):
+    for i in range(1, 100):
         final = np.linalg.matrix_power(matrix, i)
         img.append((plot_prob_matrix(ax, final),))
     anim = animation.ArtistAnimation(fig, img, interval=50, repeat_delay=3000,

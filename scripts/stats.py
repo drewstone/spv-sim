@@ -56,10 +56,19 @@ def run_split():
     alpha = 0.3
     beta = 0.5
     # target confirmations
-    for k in range(2, 7):
-        node_map = better_graph.split_graph(alpha, beta, k)
+    for k in range(2, 50):
+        node_map, final_nodes = better_graph.split_graph(alpha, beta, k)
+        print(final_nodes)
         matrix = better_graph.markov_chain_gen(node_map)
-        mc.start(matrix, k, alpha, beta, title="split")
+        print(matrix)
+        # animation
+        # mc.start(matrix, k, alpha, beta, title="split")
+        # get distribution for outcomes
+        converge = np.linalg.matrix_power(matrix, 200)
+        for j in final_nodes:
+            print("{} confirmations, P[0,{}] = {}".format(
+                k, j, converge[0][j]))
+
 
 
 if __name__ == '__main__':
