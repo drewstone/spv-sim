@@ -56,10 +56,10 @@ def run_split():
     alpha = 0.3
     beta = 0.5
     # target confirmations
-    for k in range(2, 3):
+    for k in range(2, 7):
         node_map = better_graph.split_graph(alpha, beta, k)
-        for i in node_map:
-            print(node_map[i])
+        matrix = better_graph.markov_chain_gen(node_map)
+        mc.start(matrix, k, alpha, beta, title="split")
 
 
 if __name__ == '__main__':

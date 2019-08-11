@@ -221,7 +221,7 @@ def plot_prob_matrix(ax, m):
     return ax.imshow(m, interpolation='none', cmap=plt.cm.jet)
 
 
-def start(matrix, k, alpha, beta):
+def start(matrix, k, alpha, beta, title="reg"):
     fig = plt.figure()
     ax = fig.subplots()
     ax.set_title('Converge animation w/ alpha: {}, beta: {}, gamma: {}'.format(alpha, beta, 1 - alpha - beta), fontsize=12)
@@ -232,7 +232,7 @@ def start(matrix, k, alpha, beta):
         img.append((plot_prob_matrix(ax, final),))
     anim = animation.ArtistAnimation(fig, img, interval=50, repeat_delay=3000,
                                    blit=True)
-    anim.save('converge-{}.mp4'.format(k), writer='imagemagick', fps=30)
+    anim.save('{}-converge-{}.mp4'.format(title, k), writer='imagemagick', fps=30)
     return final
 
 

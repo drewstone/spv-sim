@@ -1,3 +1,6 @@
+import numpy as np
+
+
 WIN_STATE = [-1, 0]
 LOSE_STATE = [0, -1]
 
@@ -82,25 +85,7 @@ def split_graph(alpha, beta, target_conf):
             left_state = WIN_STATE
         if node.state[1] + 1 > target_conf:
             right_state = LOSE_STATE
-        # children = [
-        #     SimpleNode(
-        #         ctr,
-        #         [node.state[0] + 1, node.state[1]],
-        #         from_honest),
-        #     SimpleNode(
-        #         ctr + 1,
-        #         [node.state[0], node.state[1] + 1],
-        #         from_honest)
-        # ]
 
-        # if node.state[0] + 1 > target_conf:
-        #     children[0] = SimpleNode(ctr, WIN_STATE, None)
-        #     children[0].set_prob(0.0)
-        #     children[0].set_children(-1)
-        # if node.state[1] + 1 > target_conf:
-        #     children[1] = SimpleNode(ctr, LOSE_STATE, None)
-        #     children[1].set_prob(0.0)
-        #     children[1].set_children(-1)
         node.set_children([ctr, ctr + 1])
         left_lookup = (left_state[0], left_state[1])
         right_lookup = (right_state[0], right_state[1])
@@ -129,3 +114,11 @@ def split_graph(alpha, beta, target_conf):
             node.set_right_child(seen[right_lookup])
 
     return nmap
+
+def markov_chain_gen(node_map):
+    matrix = np.zeros([len(node_map), len(node_map)])
+    for inx in node_map:
+        node = node_map[inx]
+        matrix[node.id][node.children[0]] = node.prob[0] + matrix[node.id][node.children[0]]
+        matrix[node.id][node.children[1]] = node.prob[1] + matrix[node.id][node.children[1]]
+    return matrix
