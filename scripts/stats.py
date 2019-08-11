@@ -5,6 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.cm as cm
 import numpy as np
 import mc
+import better_graph
 import copy
 
 
@@ -51,5 +52,15 @@ def run():
         print(win_prob)
 
 
+def run_split():
+    alpha = 0.3
+    beta = 0.5
+    # target confirmations
+    for k in range(2, 3):
+        node_map = better_graph.split_graph(alpha, beta, k)
+        for i in node_map:
+            print(node_map[i])
+
+
 if __name__ == '__main__':
-    run()
+    run_split()

@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Node(object):
-    def __init__(self, _id, alpha, beta, level):
+    def __init__(self, _id, alpha, beta, level, from_honest=False):
         super(Node, self).__init__()
         self.id = _id
         self.alpha = alpha
@@ -19,6 +19,7 @@ class Node(object):
         self.right_prob = 0.0
         self.attack_blocks = None
         self.honest_blocks = None
+        self.from_honest = from_honest
 
     def set_children(self, left, right):
         self.left = left
@@ -58,7 +59,7 @@ def build_symmetric_graph(alpha, beta, target_conf):
     level_ct = 2 * target_conf + 1
     num_nodes = (level_ct * (level_ct + 1)) / 2
     node_map = create_node_map(alpha, beta, target_conf)
-    in_queue = {0: True, 1: True, 2: True}
+    been_in_queue = {0: True, 1: True, 2: True}
     # setup root node children
     root = node_map[0]
     root.set_children(1, 2)
@@ -81,7 +82,7 @@ def build_symmetric_graph(alpha, beta, target_conf):
             return node_map
 
         node.set_children(ctr, ctr + 1)
-        if ctr not in in_queue:
+        if ctr not in been_in_queue:
             queue.append(node_map[ctr])
             node_map[ctr].set_state(node.attack_blocks + 1, node.honest_blocks)
             # set probabilities based on two chain states
@@ -90,8 +91,8 @@ def build_symmetric_graph(alpha, beta, target_conf):
             else:
                 node_map[ctr].set_prob(alpha)
 
-            in_queue[ctr] = True
-        if ctr + 1 not in in_queue and ctr + 1 < num_nodes:
+            been_in_queue[ctr] = True
+        if ctr + 1 not in been_in_queue and ctr + 1 < num_nodes:
             queue.append(node_map[ctr + 1])
             node_map[ctr + 1].set_state(node.attack_blocks, node.honest_blocks + 1)
             # set probabilities based on two chain states
@@ -99,7 +100,7 @@ def build_symmetric_graph(alpha, beta, target_conf):
                 node_map[ctr].set_prob(1 - beta)
             else:
                 node_map[ctr].set_prob(alpha)
-            in_queue[ctr + 1] = True
+            been_in_queue[ctr + 1] = True
 
         ctr += 1
 
@@ -111,7 +112,7 @@ def build_rect_graph(alpha, beta, target_conf):
     num_nodes = ((target_conf + 1) * (target_conf + 2))
     print("Number of nodes: {}".format(num_nodes))
     node_map = {}
-    in_queue = {0: True}
+    been_in_queue = {0: True}
     root = Node(0, alpha, beta, 0)
     ctr = 1
     queue = [root]
@@ -137,25 +138,25 @@ def build_rect_graph(alpha, beta, target_conf):
             if node.attack_blocks > target_conf:
                 node.set_children(None, None)
                 node.set_prob(0.0)
-                if ctr not in in_queue:
+                if ctr not in been_in_queue:
                     r_child = Node(ctr, alpha, beta, node.level + 1)
                     r_child.set_state(node.attack_blocks, node.honest_blocks + 1)
                     r_child.set_children(None, 0)
                     r_child.set_prob(0.0)
                     queue.append(r_child)
-                    in_queue[ctr] = True
+                    been_in_queue[ctr] = True
             elif node.honest_blocks == target_conf:
                 node.set_children(ctr, 0)
                 node.set_prob(alpha)
-                if ctr not in in_queue:
+                if ctr not in been_in_queue:
                     l_child = Node(ctr, alpha, beta, node.level + 1)
                     l_child.set_state(node.attack_blocks + 1, node.honest_blocks)
                     queue.append(l_child)
-                    in_queue[ctr] = True
+                    been_in_queue[ctr] = True
                 ctr += 1
             else:
                 node.set_children(ctr, ctr + 1)
-                if ctr not in in_queue:
+                if ctr not in been_in_queue:
                     l_child = Node(ctr, alpha, beta, node.level + 1)
                     l_child.set_state(node.attack_blocks + 1, node.honest_blocks)
                     queue.append(l_child)
@@ -164,10 +165,10 @@ def build_rect_graph(alpha, beta, target_conf):
                     else:
                         node.set_prob(alpha)
 
-                    in_queue[ctr] = True
+                    been_in_queue[ctr] = True
 
 
-                if ctr + 1 not in in_queue:
+                if ctr + 1 not in been_in_queue:
                     r_child = Node(ctr + 1, alpha, beta, node.level + 1)
                     r_child.set_state(node.attack_blocks, node.honest_blocks + 1)
                     queue.append(r_child)
@@ -175,7 +176,7 @@ def build_rect_graph(alpha, beta, target_conf):
                         node.set_prob(1 - beta)
                     else:
                         node.set_prob(alpha)
-                    in_queue[ctr + 1] = True
+                    been_in_queue[ctr + 1] = True
                 ctr += 1
 
             if node.attack_blocks == 0 and node.honest_blocks < target_conf:
@@ -189,6 +190,7 @@ def build_rect_graph(alpha, beta, target_conf):
 
         if ctr >= num_nodes:
             return node_map
+
 
 def print_queue(queue):
     for _, elt in enumerate(queue):
